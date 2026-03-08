@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>One-Click Random NFT Contract → Base</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #e0e0ff;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 640px;
+      margin: 40px auto;
+      background: rgba(20, 20, 50, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 2.5rem;
+      border-radius: 20px;
+      border: 1px solid #444488;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+    h1 {
+      color: #c084fc;
+      margin-bottom: 1.8rem;
+      font-size: 2.1rem;
+    }
+    button {
+      width: 100%;
+      padding: 18px;
+      margin: 1.5rem 0;
+      font-size: 1.3rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+    #connectBtn {
+      background: #3b82f6;
+    }
+    #connectBtn:hover:not(:disabled) {
+      background: #60a5fa;
+      transform: translateY(-2px);
+    }
+    #deployBtn {
+      background: linear-gradient(90deg, #8b5cf6, #d946ef);
+    }
+    #deployBtn:hover:not(:disabled) {
+      background: linear-gradient(90deg, #a78bfa, #f472b6);
+      transform: translateY(-2px);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 1.6rem;
+      padding: 16px;
+      border-radius: 12px;
+      background: rgba(30, 35, 70, 0.7);
+      min-height: 100px;
+      text-align: left;
+      white-space: pre-wrap;
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+    .success { background: rgba(34, 197, 94, 0.25); color: #bbf7d0; }
+    .error   { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+    a { color: #c4b5fd; text-decoration: underline; }
+    .small { font-size: 0.9rem; opacity: 0.8; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>One-Click Random NFT Deployer<br/><small style="font-size:1rem;opacity:0.8;">Base Mainnet</small></h1>
+
+  <button id="connectBtn">Connect MetaMask</button>
+  <button id="deployBtn" disabled>Deploy Random ERC-721</button>
+
+  <div id="status">Ready when you are… (costs real ETH gas on Base)</div>
+
+  <div class="small">
+    Deploys minimal ERC-721 with random name/symbol.<br>
+    For fun / testing only — no public mint function.
+  </div>
+</div>
+
+<script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
+<script>
+// ────────────────────────────────────────────────
+const status = document.getElementById('status');
+const connectBtn = document.getElementById('connectBtn');
+const deployBtn = document.getElementById('deployBtn');
+
+let provider, signer, account;
+
+const BASE_CHAIN_ID = 8453;
+const BASE_RPC = "https://mainnet.base.org";
+const BASE_EXPLORER = "https://basescan.org/tx/";
+
+// Minimal ERC721 – only constructor, no mint exposed
+// (you can add mint later via upgrade / new contract)
+const MINIMAL_ABI = [
+  "constructor(string name_, string symbol_)",
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "event Transfer(address indexed from, address indexed to, uint256 indexed id)"
+];
+
+const MINIMAL_BYTECODE = "0x608060405234801561001057600080fd5b506040516101c93803806101c9833981810160405281019061003291906100f0565b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555080600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505061015e565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006100c78261009c565b9050919050565b6100d7816100bc565b81146100e257600080fd5b50565b6000815190506100f4816100ce565b92915050565b6000602082840312156101105761010f610097565b5b600061011e848285016100e5565b91505092915050565b6000819050919050565b61013981610126565b811461014457600080fd5b50565b60008151905061015681610130565b92915050565b61016581610126565b811461017057600080fd5b50565b60006020828403121561018c5761018b610097565b5b600061019a84828501610173565b91505092915050565b6000604051905090565b600080fd5b600080fd5b600080fd5b600080fd5b600080fd5b60008083601f8401126101e4576101e36101a5565b5b8235905067ffffffffffffffff811115610201576102006101aa565b5b60208301915083600182028301111561021d5761021c6101af565b5b9250929050565b600082601f830112610239576102386101a0565b5b81516020601f820116820180811115610254576102536101b4565b5b816020850160208301376000928101602001929092525095945050505050565b60008115159050919050565b61027e81610269565b811461028957600080fd5b50565b60008151905061029b81610275565b92915050565b6000602082840312156102b7576102b6610097565b5b60006102c58482850161028c565b91505092915050565b6000604051905090565b600082905092915050565b6000819050919050565b6102f1816102de565b81146102fc57600080fd5b50565b60008151905061030e816102e8565b92915050565b60006020828403121561032a57610329610097565b5b6000610338848285016102ff565b91505092915050565b6000819050919050565b61035381610340565b811461035e57600080fd5b50565b6000815190506103708161034a565b92915050565b60006020828403121561038c5761038b610097565b5b600061039a84828501610361565b91505092915050565b6103ac81610269565b82525050565b60006020820190506103c760008301846103a3565b92915050565b6103d6816102de565b82525050565b60006020820190506103f160008301846103cd565b92915050565b6000604051905090565b600082825260208201905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b600061043e826102de565b9150610449836102de565b92508282101561045857610457610404565b5b92915050565b600061046a826102de565b9150610475836102de565b92508261048557610484610404565b5b828204905092915050565b600061049f826102de565b91506104aa836102de565b9250828210156104b9576104b8610404565b5b92915050565b6104c9816102de565b82525050565b60006020820190506104e460008301846104c0565b92915050565b6104f3816102de565b81146104fe57600080fd5b50565b600081519050610510816104ea565b92915050565b60006020828403121561052c5761052b610097565b5b600061053a848285016104f1565b91505092915050565b6000819050919050565b61055581610542565b811461056057600080fd5b50565b6000815190506105728161054c565b92915050565b60006020828403121561058e5761058d610097565b5b600061059c84828501610553565b91505092915050565b600082905092915050565b7f496e697469616c697a696e672e2e2e00000000000000000000000000000000600082015250565b60006105e3600d836105a5565b91506105ee826105b1565b602082019050919050565b60006020820190508181036000830152610612816105d6565b905091905056fea2646970667358221220YOUR_ACTUAL_COMPILED_BYTECODE_HASH_HERE64736f6c634300080c0033"; 
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+// This is placeholder — real minimal bytecode needed (see notes below)
+
+function setStatus(msg, type = "") {
+  status.textContent = msg;
+  status.className = type;
+}
+
+// ─── Connect ────────────────────────────────────────────
+connectBtn.onclick = async () => {
+  if (!window.ethereum) {
+    setStatus("No wallet detected (MetaMask?)", "error");
+    return;
+  }
+
+  try {
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+    account = await signer.getAddress();
+
+    const chainId = (await provider.getNetwork()).chainId;
+
+    connectBtn.textContent = `Connected: ${account.slice(0,6)}…${account.slice(-4)}`;
+    connectBtn.disabled = true;
+
+    if (chainId !== BASE_CHAIN_ID) {
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x2105" }],
+        });
+      } catch (switchError) {
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: "0x2105",
+              chainName: "Base Mainnet",
+              nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+              rpcUrls: [BASE_RPC],
+              blockExplorerUrls: ["https://basescan.org"]
+            }]
+          });
+        } else {
+          throw switchError;
+        }
+      }
+    }
+
+    setStatus(`Ready on Base • Account: ${account}`, "success");
+    deployBtn.disabled = false;
+  } catch (err) {
+    setStatus("Connection failed\n" + err.message, "error");
+  }
+};
+
+// ─── Deploy random contract ─────────────────────────────
+deployBtn.onclick = async () => {
+  deployBtn.disabled = true;
+  setStatus("Generating random name/symbol + deploying…");
+
+  try {
+    // Random name & symbol
+    const adjectives = ["Cosmic","Neon","Quantum","Pixel","Glitch","Shadow","Lunar","Crypto","Meme","Viral"];
+    const nouns = ["Punk","Cat","Frog","Ape","Robot","Ghost","Star","Cube","Drop","Zone"];
+    const randA = adjectives[Math.floor(Math.random()*adjectives.length)];
+    const randN = nouns[Math.floor(Math.random()*nouns.length)];
+    const name = `${randA}${randN} NFT`;
+    const symbol = randA.slice(0,2) + randN.slice(0,2).toUpperCase();
+
+    setStatus(`Deploying: "${name}" (${symbol})\n\nPreparing transaction...`);
+
+    const factory = new ethers.ContractFactory(MINIMAL_ABI, MINIMAL_BYTECODE, signer);
+
+    const contract = await factory.deploy(name, symbol, {
+      gasLimit: 4000000
+    });
+
+    setStatus(`Tx sent → ${contract.deployTransaction.hash}\nWaiting for confirmation...`);
+
+    const receipt = await contract.deployTransaction.wait();
+
+    const addr = receipt.contractAddress;
+
+    setStatus(
+      `Success!\n\n` +
+      `Contract: ${addr}\n` +
+      `Name: ${name} (${symbol})\n\n` +
+      `→ Basescan: https://basescan.org/address/${addr}\n` +
+      `→ Tx: ${BASE_EXPLORER}${contract.deployTransaction.hash}`,
+      "success"
+    );
+
+  } catch (err) {
+    setStatus("Failed\n" + (err.reason || err.message || String(err)), "error");
+    console.error(err);
+  } finally {
+    deployBtn.disabled = false;
+  }
+};
+</script>
+</body>
+</html>
